@@ -81,7 +81,7 @@ class DisguiseSystem:
         jsonData['statusCode'] = 1
         jsonData['results'] = serverDataArray
         
-        return json.dumps(jsonData, indent = 4)
+        return jsonData
             
 
 if __name__ == '__main__':
@@ -90,6 +90,6 @@ if __name__ == '__main__':
     #if len(disguiseSystem.findServers() == 0): print("Warning: no disguise servers found")
     while True:
         disguiseSystem.updateFPS()
-        print(disguiseSystem.getJSON())
+        print(json.dumps(disguiseSystem.getJSON()))
         time.sleep(1)
      
