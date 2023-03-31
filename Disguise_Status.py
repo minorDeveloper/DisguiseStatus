@@ -3,6 +3,7 @@ from telnetlib import Telnet
 from socket import gethostbyaddr
 import time
 import sys
+import os
 
 import logging
 from logging.handlers import TimedRotatingFileHandler
@@ -15,8 +16,9 @@ class DisguiseServer:
     def __init__(self, hostName, maxFPSLen):
         self.hostName = hostName
         self.maxFPSLen = maxFPSLen
+        self.fpsArray = []
         
-    fpsArray = []
+    #fpsArray = []
 
     def updateFPS(self, targetIP, targetPort):
         logger.debug("Updating fps for " + self.hostName)
@@ -115,13 +117,15 @@ def initialiseLogging():
 
 if __name__ == '__main__':
     initialiseLogging()
+
+    logger.setLevel(logging.DEBUG)
     
-    disguiseSystem = DisguiseSystem(ip, port)
+    disguiseSystem = DisguiseSystem(ip, port, maxFPSLen=5)
     serversFound = disguiseSystem.findServers()
-    logger.info(serversFound + " servers discovered")
+    logger.info(str(serversFound) + " servers discovered")
     
     while True:
         disguiseSystem.updateFPS()
-        #logger.debug(json.dumps(disguiseSystem.getJSON()))
+        logger.debug(json.dumps(disguiseSystem.getJSON()))
         time.sleep(1)
      
