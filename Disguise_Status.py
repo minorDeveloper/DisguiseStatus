@@ -4,13 +4,22 @@ from socket import gethostbyaddr
 import time
 import sys
 import os
+import threading
 
 import logging
 from logging.handlers import TimedRotatingFileHandler
 
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 ip = "192.168.31.101"
 port = 9864
 logger = logging.getLogger('obs_record')
+
+webpage_host_ip: str = "192.168.0.116"
+webpage_port: int = 8083
+webpage_enabled = True # TODO not implimented yet
+
+lock = threading.RLock()
 
 class DisguiseServer:
     def __init__(self, hostName, maxFPSLen):
@@ -29,9 +38,10 @@ class DisguiseServer:
             logger.debug(buf_as_dict)
             new_fps =  int(buf_as_dict['results'][0]['fps'])
             logger.debug("New FPS: " + str(new_fps))
-            if (len(self.fpsArray) > self.maxFPSLen):
-                self.fpsArray.pop(0)
-            self.fpsArray.append(new_fps)
+            with lock:
+                if (len(self.fpsArray) > self.maxFPSLen):
+                    self.fpsArray.pop(0)
+                self.fpsArray.append(new_fps)
             logger.debug("FPS Array: " + str(self.fpsArray))
                 
            
@@ -46,17 +56,19 @@ class DisguiseServer:
 
             return jsonData
 
-        averageFPS = sum(self.fpsArray) / len(self.fpsArray)
-        maxFPS = max(self.fpsArray)
-        minFPS = min(self.fpsArray)
+        
+        with lock:
+            averageFPS = sum(self.fpsArray) / len(self.fpsArray)
+            maxFPS = max(self.fpsArray)
+            minFPS = min(self.fpsArray)
 
-        jsonData['fps'] = {}
-        jsonData['fps']['average'] = averageFPS
-        jsonData['fps']['max'] = maxFPS
-        jsonData['fps']['min'] = minFPS
-        jsonData['name'] = self.hostName
+            jsonData['fps'] = {}
+            jsonData['fps']['average'] = averageFPS
+            jsonData['fps']['max'] = maxFPS
+            jsonData['fps']['min'] = minFPS
+            jsonData['name'] = self.hostName
 
-        return jsonData
+            return jsonData
 
 class DisguiseSystem:
     def __init__(self, targetIP, targetPort=9864, maxFPSLen=60, lowFPSWarning=30, lowFPSWarningEnabled=True):
@@ -94,6 +106,22 @@ class DisguiseSystem:
         jsonData['results'] = serverDataArray
         
         return jsonData
+    
+class JSONServer(BaseHTTPRequestHandler):
+    global disguiseSystem
+
+    def do_GET(self):
+        if self.path != '/obs_record/json':
+            return
+
+        self.send_response(200)
+        self.send_header("Content-type", "application/json")
+        self.end_headers()
+        self.wfile.write(bytes(disguiseSystem.getJSON(), "utf-8"))
+
+def start_web_server(_web_server):
+    _web_server.serve_forever()
+
             
 def initialiseLogging():
     log_file_handler = TimedRotatingFileHandler(filename=os.path.join(sys.path[0], "runtime.log"), when='D', interval=1, backupCount=10,
@@ -115,14 +143,21 @@ def initialiseLogging():
 
     logger.info("Logger initialisation complete")
 
+
+disguiseSystem = DisguiseSystem(ip, port, maxFPSLen=5)
+
 if __name__ == '__main__':
     initialiseLogging()
 
     logger.setLevel(logging.DEBUG)
     
-    disguiseSystem = DisguiseSystem(ip, port, maxFPSLen=5)
     serversFound = disguiseSystem.findServers()
     logger.info(str(serversFound) + " servers discovered")
+
+    webServer = HTTPServer((webpage_host_ip, webpage_port), JSONServer)
+    logger.info("Server started http://%s:%s" % (webpage_host_ip, webpage_port))
+    t = threading.Thread(target=start_web_server, args=(webServer,)).start()
+
     
     while True:
         disguiseSystem.updateFPS()
