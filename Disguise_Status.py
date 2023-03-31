@@ -19,15 +19,19 @@ class DisguiseServer:
     fpsArray = []
 
     def updateFPS(self, targetIP, targetPort):
+        logger.debug("Updating fps for " + self.hostName)
         q = '{"query":{"q":"machineStatus ' + self.hostName+ '"}}'
         with Telnet(targetIP, targetPort) as tn:
             tn.write(q.encode('ASCII') + b'\r\n')
             buf_as_dict = json.loads(tn.read_until(b"}]}"))
+            logger.debug(buf_as_dict)
             new_fps =  int(buf_as_dict['results'][0]['fps'])
-
+            logger.debug("New FPS: " + str(new_fps))
             if (len(self.fpsArray) > self.maxFPSLen):
                 self.fpsArray.pop(0)
-                self.fpsArray.append(new_fps)
+            self.fpsArray.append(new_fps)
+            logger.debug("FPS Array: " + str(self.fpsArray))
+                
            
     def getJSON(self):
         jsonData = {}
@@ -107,13 +111,17 @@ def initialiseLogging():
     logger.addHandler(log_file_handler)
     logger.addHandler(log_console_handler)
 
+    logger.info("Logger initialisation complete")
+
 if __name__ == '__main__':
     initialiseLogging()
+    
     disguiseSystem = DisguiseSystem(ip, port)
-    disguiseSystem.findServers()
-    #if len(disguiseSystem.findServers() == 0): print("Warning: no disguise servers found")
+    serversFound = disguiseSystem.findServers()
+    logger.info(serversFound + " servers discovered")
+    
     while True:
         disguiseSystem.updateFPS()
-        print(json.dumps(disguiseSystem.getJSON()))
+        #logger.debug(json.dumps(disguiseSystem.getJSON()))
         time.sleep(1)
      
