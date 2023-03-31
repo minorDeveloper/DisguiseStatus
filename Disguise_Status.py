@@ -1,7 +1,8 @@
 import json
 from telnetlib import Telnet
 from socket import gethostbyaddr
-ip = "192.168.31.101"    # stick the main server IP here
+import time
+ip = "192.168.31.101"
 port = 9864
 
 class DisguiseServer:
@@ -80,3 +81,5 @@ if __name__ == '__main__':
     while True:
         disguiseSystem.updateFPS()
         print(disguiseSystem.getJSON)
+        time.sleep(100)
+        
