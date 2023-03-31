@@ -12,7 +12,7 @@ class DisguiseServer:
         
     fpsArray = []
 
-    def updateFPS(targetIP, targetPort):
+    def updateFPS(self, targetIP, targetPort):
         q = '{"query":{"q":"machineStatus ' + self.hostName+ '"}}'
         with Telnet(targetIP, targetPort) as tn:
             tn.write(q.encode('ASCII') + b'\r\n')
@@ -23,12 +23,22 @@ class DisguiseServer:
                 self.fpsArray.pop(0)
                 self.fpsArray.append(new_fps)
            
-    def getJSON():
+    def getJSON(self):
+        jsonData = {}
+        if (len(self.fpsArray) == 0):
+            jsonData['fps'] = {}
+            jsonData['fps']['average'] = 0
+            jsonData['fps']['max'] = 0
+            jsonData['fps']['min'] = 0
+            jsonData['name'] = self.hostName
+
+            return jsonData
+
         averageFPS = sum(self.fpsArray) / len(self.fpsArray)
         maxFPS = max(self.fpsArray)
         minFPS = min(self.fpsArray)
 
-        jsonData = {}
+        jsonData['fps'] = {}
         jsonData['fps']['average'] = averageFPS
         jsonData['fps']['max'] = maxFPS
         jsonData['fps']['min'] = minFPS
@@ -46,11 +56,11 @@ class DisguiseSystem:
 
         self.servers: DisguiseServer = []
 
-    def updateFPS():
-        for server in servers:
-            server.updateFPS(targetIP, targetPort)
+    def updateFPS(self):
+        for server in self.servers:
+            server.updateFPS(self.targetIP, self.targetPort)
 
-    def findServers():
+    def findServers(self):
         q = '{"query":{"q":"machineList"}}'
         self.servers = []
         with Telnet(self.targetIP, self.targetPort) as tn:
@@ -61,25 +71,25 @@ class DisguiseSystem:
                 self.servers.append(DisguiseServer(hostName=server_json['name'], maxFPSLen=self.maxFPSLen))
         return len(self.servers)
         
-    def getJSON():
+    def getJSON(self):
         # json structure is each server's name, averaged, max, and min fps over the timeframe
         jsonData = {}
         serverDataArray = []
 
-        for server in servers:
+        for server in self.servers:
             serverDataArray.append(server.getJSON())
-
+        jsonData['statusCode'] = 1
         jsonData['results'] = serverDataArray
         
-        return jsonData
+        return json.dumps(jsonData, indent = 4)
             
 
 if __name__ == '__main__':
     disguiseSystem = DisguiseSystem(ip, port)
-
-    if len(disguiseSystem.findServers() == 0): print("Warning: no disguise servers found")
+    disguiseSystem.findServers()
+    #if len(disguiseSystem.findServers() == 0): print("Warning: no disguise servers found")
     while True:
         disguiseSystem.updateFPS()
-        print(disguiseSystem.getJSON)
-        time.sleep(100)
-        
+        print(disguiseSystem.getJSON())
+        time.sleep(1)
+     
