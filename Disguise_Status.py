@@ -2,8 +2,14 @@ import json
 from telnetlib import Telnet
 from socket import gethostbyaddr
 import time
+import sys
+
+import logging
+from logging.handlers import TimedRotatingFileHandler
+
 ip = "192.168.31.101"
 port = 9864
+logger = logging.getLogger('obs_record')
 
 class DisguiseServer:
     def __init__(self, hostName, maxFPSLen):
@@ -83,8 +89,26 @@ class DisguiseSystem:
         
         return jsonData
             
+def initialiseLogging():
+    log_file_handler = TimedRotatingFileHandler(filename=os.path.join(sys.path[0], "runtime.log"), when='D', interval=1, backupCount=10,
+                                        encoding='utf-8',
+                                        delay=False)
+
+    log_console_handler = logging.StreamHandler(sys.stdout)
+
+    log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    log_file_handler.setFormatter(log_formatter)
+    log_console_handler.setFormatter(log_formatter)
+
+
+    logger.setLevel(logging.INFO)
+
+    logger.addHandler(log_file_handler)
+    logger.addHandler(log_console_handler)
 
 if __name__ == '__main__':
+    initialiseLogging()
     disguiseSystem = DisguiseSystem(ip, port)
     disguiseSystem.findServers()
     #if len(disguiseSystem.findServers() == 0): print("Warning: no disguise servers found")
