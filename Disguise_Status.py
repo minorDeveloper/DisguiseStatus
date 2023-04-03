@@ -32,17 +32,20 @@ class DisguiseServer:
     def updateFPS(self, targetIP, targetPort):
         logger.debug("Updating fps for " + self.hostName)
         q = '{"query":{"q":"machineStatus ' + self.hostName+ '"}}'
-        with Telnet(targetIP, targetPort) as tn:
-            tn.write(q.encode('ASCII') + b'\r\n')
-            buf_as_dict = json.loads(tn.read_until(b"}]}"))
-            logger.debug(buf_as_dict)
-            new_fps =  int(buf_as_dict['results'][0]['fps'])
-            logger.debug("New FPS: " + str(new_fps))
-            with lock:
-                if (len(self.fpsArray) > self.maxFPSLen):
-                    self.fpsArray.pop(0)
-                self.fpsArray.append(new_fps)
-            logger.debug("FPS Array: " + str(self.fpsArray))
+        try:
+            with Telnet(targetIP, targetPort) as tn:
+                tn.write(q.encode('ASCII') + b'\r\n')
+                buf_as_dict = json.loads(tn.read_until(b"}]}"))
+                logger.debug(buf_as_dict)
+                new_fps =  int(buf_as_dict['results'][0]['fps'])
+                logger.debug("New FPS: " + str(new_fps))
+                with lock:
+                    if (len(self.fpsArray) > self.maxFPSLen):
+                        self.fpsArray.pop(0)
+                    self.fpsArray.append(new_fps)
+                logger.debug("FPS Array: " + str(self.fpsArray))
+        except:
+            logger.warn("Unable to reach disguise server " + self.hostName)
                 
            
     def getJSON(self):
@@ -87,12 +90,15 @@ class DisguiseSystem:
     def findServers(self):
         q = '{"query":{"q":"machineList"}}'
         self.servers = []
-        with Telnet(self.targetIP, self.targetPort) as tn:
-            tn.write(q.encode('ASCII') + b'\r\n')
-            buf_as_dict = json.loads(tn.read_until(b"}]}"))
-            server_json_list = buf_as_dict['results']
-            for server_json in server_json_list:
-                self.servers.append(DisguiseServer(hostName=server_json['name'], maxFPSLen=self.maxFPSLen))
+        try:
+            with Telnet(self.targetIP, self.targetPort) as tn:
+                tn.write(q.encode('ASCII') + b'\r\n')
+                buf_as_dict = json.loads(tn.read_until(b"}]}"))
+                server_json_list = buf_as_dict['results']
+                for server_json in server_json_list:
+                    self.servers.append(DisguiseServer(hostName=server_json['name'], maxFPSLen=self.maxFPSLen))
+        except:
+            logger.warn("Unable to detect a disguise server at " + self.targetIP + ":" + self.targetPort)
         return len(self.servers)
         
     def getJSON(self):
@@ -106,6 +112,9 @@ class DisguiseSystem:
         jsonData['results'] = serverDataArray
         
         return jsonData
+    
+    def serversFound(self):
+        return len(self.servers)
     
 class JSONServer(BaseHTTPRequestHandler):
     global disguiseSystem
@@ -151,8 +160,12 @@ if __name__ == '__main__':
 
     logger.setLevel(logging.DEBUG)
     
-    serversFound = disguiseSystem.findServers()
-    logger.info(str(serversFound) + " servers discovered")
+    while (disguiseSystem.findServers() == 0): 
+        logger.warn("No servers found")
+        time.sleep(1)
+        
+    logger.info(str(disguiseSystem.serversFound()) + " servers discovered")
+
 
     webServer = HTTPServer((webpage_host_ip, webpage_port), JSONServer)
     logger.info("Server started http://%s:%s" % (webpage_host_ip, webpage_port))
