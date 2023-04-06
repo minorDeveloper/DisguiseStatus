@@ -26,8 +26,6 @@ class DisguiseServer:
         self.hostName = hostName
         self.maxFPSLen = maxFPSLen
         self.fpsArray = []
-        
-    #fpsArray = []
 
     def updateFPS(self, targetIP, targetPort):
         logger.debug("Updating fps for " + self.hostName)
@@ -47,24 +45,21 @@ class DisguiseServer:
         except:
             logger.warn("Unable to reach disguise server " + self.hostName)
                 
-           
+    
     def getJSON(self):
         jsonData = {}
+
         if (len(self.fpsArray) == 0):
-            jsonData['fps'] = {}
-            jsonData['fps']['average'] = 0
-            jsonData['fps']['max'] = 0
-            jsonData['fps']['min'] = 0
-            jsonData['name'] = self.hostName
-
-            return jsonData
-
-        
-        with lock:
+            averageFPS = 0
+            maxFPS = 0
+            minFPS = 0
+        else:
             averageFPS = sum(self.fpsArray) / len(self.fpsArray)
             maxFPS = max(self.fpsArray)
             minFPS = min(self.fpsArray)
 
+        with lock:
+        
             jsonData['fps'] = {}
             jsonData['fps']['average'] = averageFPS
             jsonData['fps']['max'] = maxFPS
