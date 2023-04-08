@@ -11,9 +11,10 @@ from logging.handlers import TimedRotatingFileHandler
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
+programName = "disguise_status"
 ip = "192.168.31.101"
 port = 9864
-logger = logging.getLogger('obs_record')
+logger = logging.getLogger(programName)
 
 webpage_host_ip: str = "192.168.0.116"
 webpage_port: int = 8083
@@ -44,6 +45,8 @@ class DisguiseServer:
                 self.fpsArray.append(new_fps)
             logger.debug("FPS Array: " + str(self.fpsArray))
                 
+    def logLatestFPS(self):
+        logger.info(self.hostName + ": " + str(int(self.fpsArray[-1])) + " fps")
            
     def getJSON(self):
         jsonData = {}
@@ -83,6 +86,7 @@ class DisguiseSystem:
     def updateFPS(self):
         for server in self.servers:
             server.updateFPS(self.targetIP, self.targetPort)
+            server.logLatestFPS()
 
     def findServers(self):
         q = '{"query":{"q":"machineList"}}'
@@ -111,13 +115,14 @@ class JSONServer(BaseHTTPRequestHandler):
     global disguiseSystem
 
     def do_GET(self):
-        if self.path != '/obs_record/json':
+        if self.path != '/' + programName + '/json':
             return
-
+        with lock:
+            logger.info("Responding to HTTP request")
         self.send_response(200)
         self.send_header("Content-type", "application/json")
         self.end_headers()
-        self.wfile.write(bytes(disguiseSystem.getJSON(), "utf-8"))
+        self.wfile.write(bytes(json.dumps(disguiseSystem.getJSON()), "utf-8"))
 
 def start_web_server(_web_server):
     _web_server.serve_forever()
@@ -144,12 +149,12 @@ def initialiseLogging():
     logger.info("Logger initialisation complete")
 
 
-disguiseSystem = DisguiseSystem(ip, port, maxFPSLen=5)
+disguiseSystem = DisguiseSystem(ip, port, maxFPSLen=500)
 
 if __name__ == '__main__':
     initialiseLogging()
 
-    logger.setLevel(logging.DEBUG)
+    #logger.setLevel(logging.DEBUG)
     
     serversFound = disguiseSystem.findServers()
     logger.info(str(serversFound) + " servers discovered")
@@ -162,5 +167,5 @@ if __name__ == '__main__':
     while True:
         disguiseSystem.updateFPS()
         logger.debug(json.dumps(disguiseSystem.getJSON()))
-        time.sleep(1)
+        time.sleep(0.5)
      
